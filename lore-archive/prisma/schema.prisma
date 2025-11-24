@@ -1,14 +1,52 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
+}
+
+enum Category {
+  MOVIE
+  TV
+  ANIME
+  MANGA
+  BOOK
+  COMIC
+}
+
+model Movie {
+  id           Int        @id
+  title        String
+  poster       String?
+  releaseDate  String?
+  category     Category
+
+  ratings      Rating[]
+  watchEntries Watchlist[]
+  genres       MovieGenre[]
+}
+
+model MovieGenre {
+  id      Int    @id @default(autoincrement())
+  movieId Int
+  genre   String
+
+  movie   Movie  @relation(fields: [movieId], references: [id])
+}
+
+model Rating {
+  id      Int   @id @default(autoincrement())
+  movieId Int
+  value   Float?
+
+  movie   Movie @relation(fields: [movieId], references: [id])
+}
+
+model Watchlist {
+  id      Int   @id @default(autoincrement())
+  movieId Int
+
+  movie   Movie @relation(fields: [movieId], references: [id])
 }
