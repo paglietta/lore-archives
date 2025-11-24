@@ -11,6 +11,8 @@ export default function TestMoviePage() {
   const [message, setMessage] = useState("");
   const [movies, setMovies] = useState<any[]>([]);
   const [ratingValues, setRatingValues] = useState<{ [key: number]: string }>({});
+  const [searchQuery, setSearchQuery] = useState(""); //ricerca
+  const [searchResults, setSearchResults] = useState<any[]>([]); //risultati
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,6 +141,92 @@ export default function TestMoviePage() {
         <button type="submit">Save</button>
         {message && <p>{message}</p>}
       </form>
+
+      <div>
+        <h2>Search TMDB</h2>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Cerca un film o serie..."
+        />
+        <button onClick={async (e) => {
+          e.preventDefault();
+          if (!searchQuery) return;
+          try {
+            const res = await fetch(`/api/search?query=${encodeURIComponent(searchQuery)}`);
+            const data = await res.json();
+            setSearchResults(data.results);
+          } catch (err) {
+            console.error(err);
+          }
+        }}>Search</button>
+      </div>
+
+      <h2>Risultati ricerca</h2>
+      <div>
+        {searchResults.length === 0 && <p>Nessun risultato</p>}
+
+        {searchResults.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              border: "1px solid #444",
+              padding: "10px",
+              marginBottom: "10px",
+              display: "flex",
+              gap: "10px",
+              alignItems: "center"
+            }}
+          >
+            {item.poster && (
+              <img
+                src={item.poster}
+                alt={item.title}
+                style={{ width: "60px", borderRadius: "4px" }}
+              />
+            )}
+
+            <div>
+              <h3 style={{ margin: 0 }}>{item.title}</h3>
+              <p style={{ margin: 0, fontSize: "14px", opacity: 0.7 }}>
+                {item.type.toUpperCase()} — {item.releaseDate}
+              </p>
+
+              <button
+                style={{ marginTop: "5px" }}
+                onClick={async () => {
+                  try {
+                    const body = {
+                      id: Math.floor(Math.random() * 1000000),
+                      title: item.title,
+                      poster: item.poster,
+                      releaseDate: item.releaseDate,
+                      category: "MOVIE", 
+                      genres: [], 
+                    };
+
+                    const res = await fetch("/api/movie", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(body),
+                    });
+
+                    const data = await res.json();
+                    console.log("added:", data);
+
+                    setMessage(`${item.title} aggiunto`);
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <h2>Film aggiunti</h2>
       <div>
