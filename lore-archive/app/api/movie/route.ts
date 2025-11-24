@@ -35,3 +35,11 @@ export async function POST(request: Request){
 
     return Response.json({ok:true})
 }
+
+export async function GET(){
+    const movies = await prisma.movie.findMany({ //prendo tutti in film e aggiungo generi e ratings associati
+        include: { genres: true, ratings: true },
+    });
+
+    return Response.json({ movies })
+}
