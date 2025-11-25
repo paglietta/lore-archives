@@ -17,6 +17,8 @@ export async function GET(request:Request){
     const response = await fetch(url); 
     const data = await response.json(); //convertiamo la response in json
 
+    console.log(data);
+
     const filtered = data.results.filter((item: any) => //array.filter((item) => condizione) - item è il nome della variabile per ogni elemento dell'array
         item.media_type === "movie" || item.media_type === "tv");
 
