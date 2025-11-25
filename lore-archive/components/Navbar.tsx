@@ -1,6 +1,11 @@
-"use client";
+"use client"
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react"
+import { Search, Film, Tv, Book, Menu } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import Link from "next/link"
 
 interface NavbarProps { //con questa ricevo i callback
     onSearchResults: (results: any[]) => void;
@@ -72,40 +77,110 @@ export default function Navbar({ onSearchResults }: NavbarProps) {
     }, [searchQuery, onSearchResults]);
 
     return (
-        <div style={{
-            padding: "20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid #e0e0e0",
-            marginBottom: "40px"
-        }}>
-            <div style={{
-                fontSize: "16px",
-                fontWeight: "500",
-                color: "#333",
-                cursor: "pointer"
-            }}>
-                Watchlist
+        <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="container flex h-16 items-center px-4 mx-auto max-w-7xl">
+                <Link href="/" className="flex items-center gap-2 mr-6 hover:opacity-80 transition-opacity">
+                    <Film className="h-6 w-6 text-primary" />
+                    <span className="font-semibold text-lg tracking-tight">Lore Archives</span>
+                </Link>
+
+                <div className="hidden md:flex items-center gap-1 mr-auto">
+                    <Link href="/test-movie">
+                        <Button variant="ghost" size="sm" className="gap-2">
+                            <Film className="h-4 w-4" />
+                            Movies
+                        </Button>
+                    </Link>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                        <Tv className="h-4 w-4" />
+                        TV Series
+                    </Button>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                        <Tv className="h-4 w-4" />
+                        Anime
+                    </Button>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                        <Book className="h-4 w-4" />
+                        Books
+                    </Button>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                        <Book className="h-4 w-4" />
+                        Manga
+                    </Button>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                        <Book className="h-4 w-4" />
+                        Comics
+                    </Button>
+                </div>
+
+                <div className="hidden md:flex flex-1 max-w-md mx-4">
+                    <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)} //aggiorna lo stato ogni volta che l'utente scrive
+                            className="w-full pl-9 bg-secondary/50 border-border/50 focus-visible:ring-primary"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex md:hidden ml-auto">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Menu className="h-5 w-5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem asChild>
+                                <Link href="/test-movie" className="gap-2">
+                                    <Film className="h-4 w-4" />
+                                    Film
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Tv className="h-4 w-4" />
+                                Serie TV
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Tv className="h-4 w-4" />
+                                Anime
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Book className="h-4 w-4" />
+                                Libri
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Book className="h-4 w-4" />
+                                Manga
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Book className="h-4 w-4" />
+                                Fumetti
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+
+                <Button variant="ghost" size="icon" className="md:hidden ml-2">
+                    <Search className="h-5 w-5" />
+                </Button>
             </div>
 
-            <input
-                type="text"
-                placeholder="Search a movie..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)} //aggiorna lo stato ogni volta che l'utente scrive
-                style={{
-                    width: "100%",
-                    maxWidth: "500px",
-                    padding: "12px 24px",
-                    borderRadius: "50px",
-                    border: "2px solid #ccc",
-                    outline: "none",
-                    fontSize: "16px"
-                }}
-            />
-
-            <div style={{ width: "80px" }}></div>
-        </div>
-    );
+            <div className="md:hidden px-4 pb-4">
+                <div className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input 
+                        type="search" 
+                        placeholder="Search..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)} //aggiorna lo stato ogni volta che l'utente scrive
+                        className="w-full pl-9 bg-secondary/50 border-border/50" 
+                    />
+                </div>
+            </div>
+        </nav>
+    )
 }

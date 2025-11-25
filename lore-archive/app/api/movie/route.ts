@@ -9,7 +9,7 @@ export async function POST(request: Request){
     });
 
     if (existingMovie){
-        return Response.json({ movie: existingMovie });
+        return Response.json({ movie: existingMovie, alreadyExists: true });
     }
 
     const newMovie = await prisma.movie.create({ //crea un nuovo record con i campi che voglio salvare
@@ -33,12 +33,13 @@ export async function POST(request: Request){
         }
     }
 
-    return Response.json({ok:true})
+    return Response.json({ok:true, movie: newMovie})
 }
 
 export async function GET(){
-    const movies = await prisma.movie.findMany({ //prendo tutti in film e aggiungo generi e ratings associati
+    const movies = await prisma.movie.findMany({ //prendo tutti i film e aggiungo generi e ratings associati
         include: { genres: true, ratings: true },
+        orderBy: { createdAt: 'desc' }, //ordina dal più recente al più vecchio
     });
 
     return Response.json({ movies })

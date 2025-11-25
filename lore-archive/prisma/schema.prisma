@@ -1,52 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-enum Category {
-  MOVIE
-  TV
-  ANIME
-  MANGA
-  BOOK
-  COMIC
-}
-
 model Movie {
-  id           Int        @id
-  title        String
-  poster       String?
-  releaseDate  String?
-  category     Category
-
-  ratings      Rating[]
-  watchEntries Watchlist[]
-  genres       MovieGenre[]
+  id          Int      @id
+  title       String
+  poster      String?
+  releaseDate String?
+  category    String
+  createdAt   DateTime @default(now())
+  
+  genres      MovieGenre[]
+  ratings     Rating[]
+  watchlist   Watchlist[]
 }
 
 model MovieGenre {
   id      Int    @id @default(autoincrement())
   movieId Int
   genre   String
-
+  
   movie   Movie  @relation(fields: [movieId], references: [id])
 }
 
 model Rating {
   id      Int   @id @default(autoincrement())
   movieId Int   @unique
-  value   Float?
-
+  value   Float
+  
   movie   Movie @relation(fields: [movieId], references: [id])
 }
 
 model Watchlist {
-  id      Int   @id @default(autoincrement())
+  id      Int @id @default(autoincrement())
   movieId Int
-
+  
   movie   Movie @relation(fields: [movieId], references: [id])
 }
