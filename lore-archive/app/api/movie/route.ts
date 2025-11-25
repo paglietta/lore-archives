@@ -43,3 +43,32 @@ export async function GET(){
 
     return Response.json({ movies })
 }
+
+export async function DELETE(request: Request){
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+        return Response.json({ error: "ID mancante" }, { status: 400 });
+    }
+
+    const movieId = parseInt(id);
+
+    await prisma.movieGenre.deleteMany({
+        where: { movieId }
+    });
+
+    await prisma.rating.deleteMany({
+        where: { movieId }
+    });
+
+    await prisma.watchlist.deleteMany({
+        where: { movieId }
+    });
+
+    await prisma.movie.delete({
+        where: { id: movieId }
+    });
+
+    return Response.json({ ok: true });
+}

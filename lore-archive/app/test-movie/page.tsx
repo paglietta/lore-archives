@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Navbar from "@/components/Navbar"; 
 
 export default function TestMoviePage() {
   const [title, setTitle] = useState("");
@@ -11,8 +12,8 @@ export default function TestMoviePage() {
   const [message, setMessage] = useState("");
   const [movies, setMovies] = useState<any[]>([]);
   const [ratingValues, setRatingValues] = useState<{ [key: number]: string }>({});
-  const [searchQuery, setSearchQuery] = useState(""); //ricerca
-  const [searchResults, setSearchResults] = useState<any[]>([]); //risultati
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [hoveredMovieId, setHoveredMovieId] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,8 +62,10 @@ export default function TestMoviePage() {
     fetchMovies();
   }, []);
 
-  const handleRatingSubmit = async (movieId: number) => {
-    const value = parseFloat(ratingValues[movieId]);
+  const handleRatingChange = async (movieId: number, newValue: string) => {
+    setRatingValues({ ...ratingValues, [movieId]: newValue });
+    
+    const value = parseFloat(newValue);
     if (isNaN(value)) return;
 
     try {
@@ -72,7 +75,6 @@ export default function TestMoviePage() {
         body: JSON.stringify({ movieId, value }),
       });
       const data = await res.json();
-      console.log("rating updated:", data);
       
       setMovies((prev) =>
         prev.map((m) =>
@@ -84,190 +86,210 @@ export default function TestMoviePage() {
     }
   };
 
+  const handleDeleteMovie = async (movieId: number) => {
+    if (!confirm("Sei sicuro di voler eliminare questo film?")) return;
+
+    try {
+      const res = await fetch(`/api/movie?id=${movieId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setMovies((prev) => prev.filter((m) => m.id !== movieId));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div>
-      <form onSubmit={handleSubmit}>
+      <Navbar onSearchResults={setSearchResults} />
+
+      <div style={{ padding: "0 20px" }}>
         <div>
-          <label>Title:</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          {searchResults.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                border: "1px solid #444",
+                padding: "10px",
+                marginBottom: "10px",
+                display: "flex",
+                gap: "10px",
+                alignItems: "center"
+              }}
+            >
+              {item.poster && (
+                <img
+                  src={item.poster}
+                  alt={item.title}
+                  style={{ width: "60px", borderRadius: "4px" }}
+                />
+              )}
+
+              <div>
+                <h3 style={{ margin: 0 }}>{item.title}</h3>
+                <p style={{ margin: 0, fontSize: "14px", opacity: 0.7 }}>
+                  {item.type.toUpperCase()} — {item.releaseDate}
+                </p>
+
+                <button
+                  style={{ marginTop: "5px" }}
+                  onClick={async () => {
+                    try {
+                      const body = {
+                        id: Math.floor(Math.random() * 1000000),
+                        title: item.title,
+                        poster: item.poster,
+                        releaseDate: item.releaseDate,
+                        category: "MOVIE", 
+                        genres: [], 
+                      };
+
+                      const res = await fetch("/api/movie", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                      });
+
+                      const data = await res.json();
+                      console.log("added:", data);
+
+                      setMessage(`${item.title} aggiunto`);
+                    } catch (err) {
+                      console.error(err);
+                    }
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div>
-          <label>Poster URL:</label>
-          <input
-            type="text"
-            value={poster}
-            onChange={(e) => setPoster(e.target.value)}
-          />
-        </div>
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "30px",
+            marginBottom: "30px"
+          }}>
+            <span style={{
+              fontSize: "18px",
+              fontWeight: "500",
+              cursor: "pointer",
+              color: "#333"
+            }}>
+              Movies
+            </span>
+            <span style={{
+              fontSize: "18px",
+              fontWeight: "500",
+              cursor: "pointer",
+              color: "#999"
+            }}>
+              Anime
+            </span>
+            <span style={{
+              fontSize: "18px",
+              fontWeight: "500",
+              cursor: "pointer",
+              color: "#999"
+            }}>
+              TV Series
+            </span>
+          </div>
 
-        <div>
-          <label>Date:</label>
-          <input
-            type="date"
-            value={releaseDate}
-            onChange={(e) => setReleaseDate(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label>Category:</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="MOVIE">Movie</option>
-            <option value="TV">TV</option>
-            <option value="ANIME">Anime</option>
-            <option value="MANGA">Manga</option>
-            <option value="BOOK">Book</option>
-            <option value="COMIC">Comic</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Genres (separati da virgola):</label>
-          <input
-            type="text"
-            value={genres}
-            onChange={(e) => setGenres(e.target.value)}
-          />
-        </div>
-
-        <button type="submit">Save</button>
-        {message && <p>{message}</p>}
-      </form>
-
-      <div>
-        <h2>Search TMDB</h2>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cerca un film o serie..."
-        />
-        <button onClick={async (e) => {
-          e.preventDefault();
-          if (!searchQuery) return;
-          try {
-            const res = await fetch(`/api/search?query=${encodeURIComponent(searchQuery)}`);
-            const data = await res.json();
-            setSearchResults(data.results);
-          } catch (err) {
-            console.error(err);
-          }
-        }}>Search</button>
-      </div>
-
-      <h2>Risultati ricerca</h2>
-      <div>
-        {searchResults.length === 0 && <p>Nessun risultato</p>}
-
-        {searchResults.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              border: "1px solid #444",
-              padding: "10px",
-              marginBottom: "10px",
-              display: "flex",
-              gap: "10px",
-              alignItems: "center"
-            }}
-          >
-            {item.poster && (
-              <img
-                src={item.poster}
-                alt={item.title}
-                style={{ width: "60px", borderRadius: "4px" }}
-              />
-            )}
-
-            <div>
-              <h3 style={{ margin: 0 }}>{item.title}</h3>
-              <p style={{ margin: 0, fontSize: "14px", opacity: 0.7 }}>
-                {item.type.toUpperCase()} — {item.releaseDate}
-              </p>
-
-              <button
-                style={{ marginTop: "5px" }}
-                onClick={async () => {
-                  try {
-                    const body = {
-                      id: Math.floor(Math.random() * 1000000),
-                      title: item.title,
-                      poster: item.poster,
-                      releaseDate: item.releaseDate,
-                      category: "MOVIE", 
-                      genres: [], 
-                    };
-
-                    const res = await fetch("/api/movie", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(body),
-                    });
-
-                    const data = await res.json();
-                    console.log("added:", data);
-
-                    setMessage(`${item.title} aggiunto`);
-                  } catch (err) {
-                    console.error(err);
-                  }
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 150px))",
+            gap: "20px",
+            justifyContent: "start"
+          }}>
+            {movies.map((movie) => (
+              <div
+                key={movie.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center"
                 }}
               >
-                Add
-              </button>
-            </div>
+                <div 
+                  style={{ position: "relative" }}
+                  onMouseEnter={() => setHoveredMovieId(movie.id)}
+                  onMouseLeave={() => setHoveredMovieId(null)}
+                >
+                  {movie.poster && (
+                    <img
+                      src={movie.poster}
+                      alt={movie.title}
+                      style={{ 
+                        width: "150px",
+                        height: "225px",
+                        objectFit: "cover",
+                        borderRadius: "8px",
+                        marginBottom: "8px"
+                      }}
+                    />
+                  )}
+                  
+                  {hoveredMovieId === movie.id && (
+                    <button
+                      onClick={() => handleDeleteMovie(movie.id)}
+                      style={{
+                        position: "absolute",
+                        top: "8px",
+                        right: "8px",
+                        background: "rgba(255, 0, 0, 0.8)",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: "32px",
+                        height: "32px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "18px",
+                        color: "white"
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                
+                <h3 style={{ 
+                  margin: "0 0 8px 0",
+                  fontSize: "14px",
+                  fontWeight: "600"
+                }}>
+                  {movie.title}
+                </h3>
+                
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="10"
+                  value={ratingValues[movie.id] ?? (movie.ratings[0]?.value ?? "")}
+                  onChange={(e) => handleRatingChange(movie.id, e.target.value)}
+                  style={{
+                    width: "60px",
+                    padding: "4px",
+                    textAlign: "center",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px"
+                  }}
+                  placeholder="Rating"
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-
-      <h2>Film aggiunti</h2>
-      <div>
-        {movies.map((movie) => (
-          <div
-            key={movie.id}
-            style={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              marginBottom: "10px",
-            }}
-          >
-            <h3>{movie.title}</h3>
-            {movie.poster && (
-              <img
-                src={movie.poster}
-                alt={movie.title}
-                style={{ width: "100px" }}
-              />
-            )}
-            <p>Category: {movie.category}</p>
-            <p>Genres: {movie.genres.map((g: any) => g.genre).join(", ")}</p>
-            
-            <div>
-              <label>Rating:</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="10"
-                value={ratingValues[movie.id] ?? (movie.ratings[0]?.value ?? "")}
-                onChange={(e) =>
-                  setRatingValues({ ...ratingValues, [movie.id]: e.target.value })
-                }
-              />
-              <button onClick={() => handleRatingSubmit(movie.id)}>
-                Save Rating
-              </button>
-            </div>
-          </div>
-        ))}
+        </div>
       </div>
     </div>
   );
