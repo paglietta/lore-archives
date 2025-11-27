@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navbar from "@/components/Navbar";
 import { MediaCard } from "@/components/MediaCard";
 
@@ -10,23 +10,23 @@ export default function TestMoviePage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        const res = await fetch("/api/movie");
-        const data = await res.json();
-        setMovies(data.movies);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    fetchMovies();
+  const fetchMovies = useCallback(async () => {
+    try {
+      const res = await fetch("/api/movie");
+      const data = await res.json();
+      setMovies(data.movies);
+    } catch (err) {
+      console.error(err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchMovies();
+  }, [fetchMovies]);
 
   const handleRatingChange = async (movieId: number, newValue: string) => {
     setRatingValues({ ...ratingValues, [movieId]: newValue });
-    
+
     const value = parseFloat(newValue);
     if (isNaN(value)) return;
 
@@ -37,11 +37,9 @@ export default function TestMoviePage() {
         body: JSON.stringify({ movieId, value }),
       });
       const data = await res.json();
-      
+
       setMovies((prev) =>
-        prev.map((m) =>
-          m.id === movieId ? { ...m, ratings: [data.rating] } : m
-        )
+        prev.map((m) => (m.id === movieId ? { ...m, ratings: [data.rating] } : m))
       );
     } catch (err) {
       console.error(err);
@@ -64,51 +62,67 @@ export default function TestMoviePage() {
     }
   };
 
-  const handleAddMovie = async (item: any) => {
-    const isAlreadyAdded = movies.some(m => m.id === item.id);
-    
-    if (isAlreadyAdded) {
+  const handleAddItem = async (item: any) => {
+    const normalizedType = (item.type || "").toLowerCase();
+    const isMovie = normalizedType === "movie";
+    const isTvSeries = normalizedType === "tv";
+
+    if (isMovie && movies.some((m) => m.id === item.id)) {
       alert("This movie is already in your collection");
       return;
     }
 
-    try {
-      const body = {
-        id: item.id,
-        title: item.title,
-        poster: item.poster,
-        releaseDate: item.releaseDate,
-        category: "MOVIE",
-        genres: [],
-      };
+    if (!isMovie && !isTvSeries) {
+      alert("Only movies or TV series can be added");
+      return;
+    }
 
-      const res = await fetch("/api/movie", {
+    try {
+      const endpoint = isTvSeries ? "/api/tv-series" : "/api/movie";
+      const category = isTvSeries ? "TV_SERIES" : "MOVIE";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          id: item.id,
+          title: item.title,
+          poster: item.poster,
+          releaseDate: item.releaseDate,
+          category,
+          genres: item.genres ?? [],
+        }),
       });
 
       const data = await res.json();
 
       if (data.alreadyExists) {
-        alert("This movie is already in your collection");
+        alert(
+          isTvSeries
+            ? "This series is already in your collection"
+            : "This movie is already in your collection"
+        );
+        return;
+      }
+
+      if (isMovie) {
+        await fetchMovies();
       } else {
-        const refreshRes = await fetch("/api/movie");
-        const refreshData = await refreshRes.json();
-        setMovies(refreshData.movies);
+        alert("TV series added. Check the TV Series page.");
       }
     } catch (err) {
-      console.error("Error adding movie:", err);
+      console.error("Error adding item:", err);
     }
   };
 
-  const avgRating = movies.length > 0 
-    ? (movies.reduce((acc, m) => acc + (m.ratings[0]?.value || 0), 0) / movies.length).toFixed(1)
-    : "0.0";
+  const avgRating =
+    movies.length > 0
+      ? (movies.reduce((acc, m) => acc + (m.ratings[0]?.value || 0), 0) / movies.length).toFixed(1)
+      : "0.0";
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar 
+      <Navbar
         onSearchResults={setSearchResults}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
@@ -118,11 +132,23 @@ export default function TestMoviePage() {
         {searchResults.length > 0 && (
           <div className="mb-8 space-y-4">
             {searchResults.map((item) => {
-              const isAlreadyAdded = movies.some(m => m.id === item.id);
-              
+              const normalizedType = (item.type || "").toLowerCase();
+              const isMovieResult = normalizedType === "movie";
+              const isTvSeriesResult = normalizedType === "tv";
+              const isSupported = isMovieResult || isTvSeriesResult;
+              const isAlreadyInMovies = isMovieResult && movies.some((m) => m.id === item.id);
+
+              const buttonLabel = !isSupported
+                ? "Unsupported"
+                : isMovieResult
+                ? isAlreadyInMovies
+                  ? "Added"
+                  : "Add to Movies"
+                : "Add to TV Series";
+
               return (
                 <div
-                  key={item.id}
+                  key={`${item.type}-${item.id}`}
                   className="flex gap-4 items-center p-4 border border-border rounded-lg bg-card hover:border-primary/50 transition-colors"
                 >
                   {item.poster && (
@@ -136,20 +162,20 @@ export default function TestMoviePage() {
                   <div className="flex-1">
                     <h3 className="font-semibold">{item.title}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {item.type.toUpperCase()} — {item.releaseDate}
+                      {item.type?.toUpperCase()} — {item.releaseDate}
                     </p>
                   </div>
 
                   <button
-                    onClick={() => handleAddMovie(item)}
-                    disabled={isAlreadyAdded}
+                    onClick={() => handleAddItem(item)}
+                    disabled={!isSupported || isAlreadyInMovies}
                     className={`px-4 py-2 rounded-md transition-colors ${
-                      isAlreadyAdded
+                      !isSupported || isAlreadyInMovies
                         ? "bg-secondary text-secondary-foreground cursor-not-allowed opacity-50"
                         : "bg-primary text-primary-foreground hover:bg-primary/90"
                     }`}
                   >
-                    {isAlreadyAdded ? "Added" : "Add"}
+                    {buttonLabel}
                   </button>
                 </div>
               );
@@ -166,9 +192,7 @@ export default function TestMoviePage() {
               <span>Avg rating: {avgRating}</span>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            Filters
-          </div>
+          <div className="text-sm text-muted-foreground">Filters</div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -178,7 +202,12 @@ export default function TestMoviePage() {
               id={movie.id}
               title={movie.title}
               posterUrl={movie.poster}
-              rating={ratingValues[movie.id] ? parseFloat(ratingValues[movie.id]) : movie.ratings[0]?.value}
+              rating={
+                ratingValues[movie.id]
+                  ? parseFloat(ratingValues[movie.id])
+                  : movie.ratings[0]?.value
+              }
+              ratingInputValue={ratingValues[movie.id]}
               year={movie.releaseDate?.substring(0, 4)}
               onDelete={handleDeleteMovie}
               onRatingChange={handleRatingChange}

@@ -7,14 +7,29 @@ interface MediaCardProps {
   title: string
   posterUrl: string
   rating?: number
+  ratingInputValue?: string
   year?: string
   onDelete: (id: number) => void
   onRatingChange: (id: number, value: string) => void
 }
 
-export function MediaCard({ id, title, posterUrl, rating, year, onDelete, onRatingChange }: MediaCardProps) {
+export function MediaCard({
+  id,
+  title,
+  posterUrl,
+  rating,
+  ratingInputValue,
+  year,
+  onDelete,
+  onRatingChange,
+}: MediaCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isEditingRating, setIsEditingRating] = useState(false)
+
+  const numericRating =
+    typeof rating === "number" && !Number.isNaN(rating) ? rating : undefined
+  const inputValue =
+    ratingInputValue ?? (numericRating !== undefined ? numericRating.toString() : "")
 
   return (
     <Card 
@@ -58,7 +73,7 @@ export function MediaCard({ id, title, posterUrl, rating, year, onDelete, onRati
                 step="0.1"
                 min="0"
                 max="10"
-                value={rating ?? ""}
+                value={inputValue}
                 onChange={(e) => onRatingChange(id, e.target.value)}
                 onBlur={() => setIsEditingRating(false)}
                 autoFocus
@@ -67,7 +82,7 @@ export function MediaCard({ id, title, posterUrl, rating, year, onDelete, onRati
               />
             ) : (
               <span className="text-sm font-medium w-14 text-center">
-                {rating ? rating.toFixed(1) : "—"}
+                {numericRating !== undefined ? numericRating.toFixed(1) : "—"}
               </span>
             )}
           </div>

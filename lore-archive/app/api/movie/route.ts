@@ -37,7 +37,8 @@ export async function POST(request: Request){
 }
 
 export async function GET(){
-    const movies = await prisma.movie.findMany({ //prendo tutti i film e aggiungo generi e ratings associati
+    const movies = await prisma.movie.findMany({
+        where: { category: "MOVIE" },
         include: { genres: true, ratings: true },
         orderBy: { createdAt: 'desc' }, //ordina dal più recente al più vecchio
     });

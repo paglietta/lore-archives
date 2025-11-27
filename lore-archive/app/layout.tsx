@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lore Archives - La Tua Libreria Personale",
-  description: "Traccia e valuta film, serie TV, anime, libri, manga e fumetti",
+  title: "Lore Archives",
+  description: "Track and grade movies, TV Series, anime, books, manga and comics",
 };
 
 export default function RootLayout({
