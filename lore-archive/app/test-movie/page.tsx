@@ -62,26 +62,61 @@ export default function TestMoviePage() {
     }
   };
 
+  type LibraryTarget = {
+    endpoint: string;
+    category: "MOVIE" | "TV_SERIES" | "ANIME" | "MANGA";
+    alreadyExistsMessage: string;
+    onSuccess?: () => Promise<void>;
+    successMessage?: string;
+  };
+
+  type LibraryKey = "movie" | "tv" | "anime" | "manga";
+
+  const isLibraryKey = (value: string): value is LibraryKey =>
+    value === "movie" || value === "tv" || value === "anime" || value === "manga";
+
+  const libraryTargets: Record<LibraryKey, LibraryTarget> = {
+    movie: {
+      endpoint: "/api/movie",
+      category: "MOVIE",
+      alreadyExistsMessage: "This movie is already in your collection",
+      onSuccess: fetchMovies,
+    },
+    tv: {
+      endpoint: "/api/tv-series",
+      category: "TV_SERIES",
+      alreadyExistsMessage: "This series is already in your collection",
+      successMessage: "TV series added. Check the TV Series page.",
+    },
+    anime: {
+      endpoint: "/api/anime",
+      category: "ANIME",
+      alreadyExistsMessage: "This anime is already in your collection",
+      successMessage: "Anime added. Check the Anime page.",
+    },
+    manga: {
+      endpoint: "/api/manga",
+      category: "MANGA",
+      alreadyExistsMessage: "This manga is already in your collection",
+      successMessage: "Manga added. Check the Manga page.",
+    },
+  };
+
   const handleAddItem = async (item: any) => {
     const normalizedType = (item.type || "").toLowerCase();
-    const isMovie = normalizedType === "movie";
-    const isTvSeries = normalizedType === "tv";
+    if (!isLibraryKey(normalizedType)) {
+      alert("Only movies, TV series, anime, or manga can be added");
+      return;
+    }
+    const target = libraryTargets[normalizedType];
 
-    if (isMovie && movies.some((m) => m.id === item.id)) {
+    if (normalizedType === "movie" && movies.some((m) => m.id === item.id)) {
       alert("This movie is already in your collection");
       return;
     }
 
-    if (!isMovie && !isTvSeries) {
-      alert("Only movies or TV series can be added");
-      return;
-    }
-
     try {
-      const endpoint = isTvSeries ? "/api/tv-series" : "/api/movie";
-      const category = isTvSeries ? "TV_SERIES" : "MOVIE";
-
-      const res = await fetch(endpoint, {
+      const res = await fetch(target.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,7 +124,7 @@ export default function TestMoviePage() {
           title: item.title,
           poster: item.poster,
           releaseDate: item.releaseDate,
-          category,
+          category: target.category,
           genres: item.genres ?? [],
         }),
       });
@@ -97,18 +132,13 @@ export default function TestMoviePage() {
       const data = await res.json();
 
       if (data.alreadyExists) {
-        alert(
-          isTvSeries
-            ? "This series is already in your collection"
-            : "This movie is already in your collection"
-        );
+        alert(target.alreadyExistsMessage);
         return;
       }
 
-      if (isMovie) {
-        await fetchMovies();
-      } else {
-        alert("TV series added. Check the TV Series page.");
+      await target.onSuccess?.();
+      if (target.successMessage) {
+        alert(target.successMessage);
       }
     } catch (err) {
       console.error("Error adding item:", err);
@@ -133,18 +163,22 @@ export default function TestMoviePage() {
           <div className="mb-8 space-y-4">
             {searchResults.map((item) => {
               const normalizedType = (item.type || "").toLowerCase();
-              const isMovieResult = normalizedType === "movie";
-              const isTvSeriesResult = normalizedType === "tv";
-              const isSupported = isMovieResult || isTvSeriesResult;
-              const isAlreadyInMovies = isMovieResult && movies.some((m) => m.id === item.id);
+              const supportedTypes = ["movie", "tv", "anime", "manga"];
+              const isSupported = supportedTypes.includes(normalizedType);
+              const isAlreadyInMovies =
+                normalizedType === "movie" && movies.some((m) => m.id === item.id);
 
               const buttonLabel = !isSupported
                 ? "Unsupported"
-                : isMovieResult
+                : normalizedType === "movie"
                 ? isAlreadyInMovies
                   ? "Added"
                   : "Add to Movies"
-                : "Add to TV Series";
+                : normalizedType === "tv"
+                ? "Add to TV Series"
+                : normalizedType === "anime"
+                ? "Add to Anime"
+                : "Add to Manga";
 
               return (
                 <div

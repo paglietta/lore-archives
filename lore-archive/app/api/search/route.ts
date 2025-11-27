@@ -14,8 +14,17 @@ export async function GET(request:Request){
 
     const url = `https://api.themoviedb.org/3/search/multi?${params.toString()}`;
 
-    const response = await fetch(url); 
-    const data = await response.json(); //convertiamo la response in json
+    const [response, animeResponse, mangaResponse] = await Promise.all([
+        fetch(url),
+        fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=8&order_by=score&sort=desc`),
+        fetch(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=8&order_by=score&sort=desc`),
+    ]);
+
+    const [data, animeData, mangaData] = await Promise.all([
+        response.json(),
+        animeResponse.ok ? animeResponse.json() : Promise.resolve({ data: [] }),
+        mangaResponse.ok ? mangaResponse.json() : Promise.resolve({ data: [] }),
+    ]);
 
     console.log(data);
 
@@ -33,5 +42,23 @@ export async function GET(request:Request){
         releaseDate: item.release_date || item.first_air_date,
     }))
 
-    return Response.json({ results: cleaned });
+    const animeResults = (animeData?.data ?? []).map((item: any) => ({
+        id: item.mal_id,
+        title: item.title,
+        overview: item.synopsis,
+        poster: item.images?.jpg?.image_url ?? null,
+        type: "anime",
+        releaseDate: item.aired?.from,
+    }))
+
+    const mangaResults = (mangaData?.data ?? []).map((item: any) => ({
+        id: item.mal_id,
+        title: item.title,
+        overview: item.synopsis,
+        poster: item.images?.jpg?.image_url ?? null,
+        type: "manga",
+        releaseDate: item.published?.from,
+    }))
+
+    return Response.json({ results: [...cleaned, ...animeResults, ...mangaResults] });
 }

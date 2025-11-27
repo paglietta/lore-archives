@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Search } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { Input } from "@/components/ui/input";
+
+type MediaTargetKey = "movie" | "tv" | "anime" | "manga";
+
+const isSupportedType = (value: string): value is MediaTargetKey =>
+  value === "movie" || value === "tv" || value === "anime" || value === "manga";
 
 export default function HomePage() {
   const [navbarSearchResults, setNavbarSearchResults] = useState<any[]>([]);
@@ -19,22 +24,47 @@ export default function HomePage() {
     comics: 0,
   });
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch("/api/movie");
-        const data = await res.json();
-        setStats({
-          ...stats,
-          movies: data.movies.length,
-        });
-      } catch (err) {
-        console.error(err);
-      }
-    };
+  const fetchStats = useCallback(async () => {
+    try {
+      const [movieRes, tvRes, animeRes, bookRes, mangaRes, comicRes] = await Promise.all([
+        fetch("/api/movie"),
+        fetch("/api/tv-series"),
+        fetch("/api/anime"),
+        fetch("/api/books"),
+        fetch("/api/manga"),
+        fetch("/api/comics"),
+      ]);
 
-    fetchStats();
+      if (!movieRes.ok || !tvRes.ok || !animeRes.ok || !bookRes.ok || !mangaRes.ok || !comicRes.ok) {
+        throw new Error("stats fetch failed");
+      }
+
+      const [movieData, tvData, animeData, bookData, mangaData, comicData] = await Promise.all([
+        movieRes.json(),
+        tvRes.json(),
+        animeRes.json(),
+        bookRes.json(),
+        mangaRes.json(),
+        comicRes.json(),
+      ]);
+
+      setStats((prev) => ({
+        ...prev,
+        movies: movieData.movies?.length ?? 0,
+        tvSeries: tvData.tvSeries?.length ?? 0,
+        anime: animeData.anime?.length ?? 0,
+        books: bookData.books?.length ?? 0,
+        manga: mangaData.manga?.length ?? 0,
+        comics: comicData.comics?.length ?? 0,
+      }));
+    } catch (err) {
+      console.error("stats error", err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   useEffect(() => {
     if (!homeSearchQuery || homeSearchQuery.length < 3) {
@@ -59,35 +89,46 @@ export default function HomePage() {
     return () => clearTimeout(timeoutId);
   }, [homeSearchQuery]);
 
-  const handleAddMovie = async (item: any) => {
-    try {
-      const body = {
-        id: item.id,
-        title: item.title,
-        poster: item.poster,
-        releaseDate: item.releaseDate,
-        category: "MOVIE",
-        genres: [],
-      };
+  const mediaTargets: Record<
+    MediaTargetKey,
+    { endpoint: string; category: string; label: string }
+  > = {
+    movie: { endpoint: "/api/movie", category: "MOVIE", label: "movie" },
+    tv: { endpoint: "/api/tv-series", category: "TV_SERIES", label: "TV series" },
+    anime: { endpoint: "/api/anime", category: "ANIME", label: "anime" },
+    manga: { endpoint: "/api/manga", category: "MANGA", label: "manga" },
+  };
 
-      const res = await fetch("/api/movie", {
+  const handleAddItem = async (item: any) => {
+    const normalizedType = (item.type || "").toLowerCase();
+    if (!isSupportedType(normalizedType)) {
+      alert("This media type is not supported yet");
+      return;
+    }
+    const target = mediaTargets[normalizedType];
+
+    try {
+      const res = await fetch(target.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          id: item.id,
+          title: item.title,
+          poster: item.poster,
+          releaseDate: item.releaseDate,
+          category: target.category,
+          genres: item.genres ?? [],
+        }),
       });
 
       const data = await res.json();
 
       if (data.alreadyExists) {
-        alert("This movie is already in your collection");
-      } else {
-        const statsRes = await fetch("/api/movie");
-        const statsData = await statsRes.json();
-        setStats({
-          ...stats,
-          movies: statsData.movies.length,
-        });
+        alert(`This ${target.label} is already in your collection`);
+        return;
       }
+
+      await fetchStats();
     } catch (err) {
       console.error(err);
     }
@@ -95,7 +136,9 @@ export default function HomePage() {
 
   const allSearchResults = [...navbarSearchResults, ...homeSearchResults];
   const uniqueSearchResults = Array.from(
-    new Map(allSearchResults.map((item) => [item.id, item])).values()
+    new Map(
+      allSearchResults.map((item) => [`${item.type}-${item.id}`, item])
+    ).values()
   );
 
   return (
@@ -160,34 +203,54 @@ export default function HomePage() {
             {uniqueSearchResults.length > 0 && (
               <div className="mt-12 space-y-4 w-full max-w-4xl">
                 <h2 className="text-2xl font-bold text-left">Search Results</h2>
-                {uniqueSearchResults.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex gap-4 items-center p-4 border border-border rounded-lg bg-card hover:border-primary/50 transition-colors"
-                  >
-                    {item.poster && (
-                      <img
-                        src={item.poster}
-                        alt={item.title}
-                        className="w-16 h-24 object-cover rounded"
-                      />
-                    )}
+                {uniqueSearchResults.map((item) => {
+                  const normalizedType = (item.type || "").toLowerCase();
+                  const isSupported = isSupportedType(normalizedType);
+                  const buttonLabel = (() => {
+                    switch (normalizedType) {
+                      case "movie":
+                        return "Add to Movies";
+                      case "tv":
+                        return "Add to TV Series";
+                      case "anime":
+                        return "Add to Anime";
+                      case "manga":
+                        return "Add to Manga";
+                      default:
+                        return "Unsupported";
+                    }
+                  })();
 
-                    <div className="flex-1">
-                      <h3 className="font-semibold">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {item.type.toUpperCase()} — {item.releaseDate}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => handleAddMovie(item)}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex gap-4 items-center p-4 border border-border rounded-lg bg-card hover:border-primary/50 transition-colors"
                     >
-                      Add
-                    </button>
-                  </div>
-                ))}
+                      {item.poster && (
+                        <img
+                          src={item.poster}
+                          alt={item.title}
+                          className="w-16 h-24 object-cover rounded"
+                        />
+                      )}
+
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{item.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {item.type.toUpperCase()} — {item.releaseDate}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleAddItem(item)}
+                        disabled={!isSupported}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {buttonLabel}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
