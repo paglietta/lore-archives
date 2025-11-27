@@ -7,41 +7,36 @@ import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 
-interface NavbarProps { //con questa ricevo i callback
+interface NavbarProps {
     onSearchResults: (results: any[]) => void;
+    searchQuery: string;
+    onSearchQueryChange: (query: string) => void;
 }
 
-export default function Navbar({ onSearchResults }: NavbarProps) {
-    const [searchQuery, setSearchQuery] = useState("");
-
-    //key: query, value: array di risultati
-    const searchCache = useRef<Map<string, any[]>>(new Map()); //map in memoria che salva query già cercate
+export default function Navbar({ onSearchResults, searchQuery, onSearchQueryChange }: NavbarProps) {
+    const searchCache = useRef<Map<string, any[]>>(new Map());
     const debounceRef = useRef<number | null>(null);
-    const abortRef = useRef<AbortController | null>(null); //annulla la fetch corrente se l'utente digita un'altra lettera
+    const abortRef = useRef<AbortController | null>(null);
 
-    //se la query è vuota/short non facciamo fetch
     useEffect(() => {
         if (!searchQuery || searchQuery.length < 3) {
             onSearchResults([]);
-            if (abortRef.current) { //puliamo la fetch in corso
+            if (abortRef.current) {
                 abortRef.current.abort();
                 abortRef.current = null;
             }
-            if (debounceRef.current) { //puliamo eventuali timeout
+            if (debounceRef.current) {
                 clearTimeout(debounceRef.current);
                 debounceRef.current = null;
             }
             return;
         }
 
-        //puliamo eventuali timeout precedenti
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
         }
 
-        //impostiamo un nuovo timeout
         debounceRef.current = window.setTimeout(async () => {
-            //se esiste una fetch in corso, annulliamola
             if (abortRef.current) {
                 abortRef.current.abort();
             }
@@ -56,7 +51,6 @@ export default function Navbar({ onSearchResults }: NavbarProps) {
                 const data = await res.json();
                 const results = data.results ?? [];
 
-                //salviamo in cache e passiamo al parent
                 searchCache.current.set(searchQuery, results);
                 onSearchResults(results);
                 abortRef.current = null;
@@ -91,26 +85,36 @@ export default function Navbar({ onSearchResults }: NavbarProps) {
                             Movies
                         </Button>
                     </Link>
-                    <Button variant="ghost" size="sm" className="gap-2">
-                        <Tv className="h-4 w-4" />
-                        TV Series
-                    </Button>
-                    <Button variant="ghost" size="sm" className="gap-2">
-                        <Tv className="h-4 w-4" />
-                        Anime
-                    </Button>
-                    <Button variant="ghost" size="sm" className="gap-2">
-                        <Book className="h-4 w-4" />
-                        Books
-                    </Button>
-                    <Button variant="ghost" size="sm" className="gap-2">
-                        <Book className="h-4 w-4" />
-                        Manga
-                    </Button>
-                    <Button variant="ghost" size="sm" className="gap-2">
-                        <Book className="h-4 w-4" />
-                        Comics
-                    </Button>
+                    <Link href="/tv-series">
+                        <Button variant="ghost" size="sm" className="gap-2">
+                            <Tv className="h-4 w-4" />
+                            TV Series
+                        </Button>
+                    </Link>
+                    <Link href="/anime">
+                        <Button variant="ghost" size="sm" className="gap-2">
+                            <Tv className="h-4 w-4" />
+                            Anime
+                        </Button>
+                    </Link>
+                    <Link href="/books">
+                        <Button variant="ghost" size="sm" className="gap-2">
+                            <Book className="h-4 w-4" />
+                            Books
+                        </Button>
+                    </Link>
+                    <Link href="/manga">
+                        <Button variant="ghost" size="sm" className="gap-2">
+                            <Book className="h-4 w-4" />
+                            Manga
+                        </Button>
+                    </Link>
+                    <Link href="/comics">
+                        <Button variant="ghost" size="sm" className="gap-2">
+                            <Book className="h-4 w-4" />
+                            Comics
+                        </Button>
+                    </Link>
                 </div>
 
                 <div className="hidden md:flex flex-1 max-w-md mx-4">
@@ -120,7 +124,7 @@ export default function Navbar({ onSearchResults }: NavbarProps) {
                             type="search"
                             placeholder="Search..."
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)} //aggiorna lo stato ogni volta che l'utente scrive
+                            onChange={(e) => onSearchQueryChange(e.target.value)}
                             className="w-full pl-9 bg-secondary/50 border-border/50 focus-visible:ring-primary"
                         />
                     </div>
@@ -137,28 +141,38 @@ export default function Navbar({ onSearchResults }: NavbarProps) {
                             <DropdownMenuItem asChild>
                                 <Link href="/test-movie" className="gap-2">
                                     <Film className="h-4 w-4" />
-                                    Film
+                                    Movies
                                 </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Tv className="h-4 w-4" />
-                                Serie TV
+                            <DropdownMenuItem asChild>
+                                <Link href="/tv-series" className="gap-2">
+                                    <Tv className="h-4 w-4" />
+                                    TV Series
+                                </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Tv className="h-4 w-4" />
-                                Anime
+                            <DropdownMenuItem asChild>
+                                <Link href="/anime" className="gap-2">
+                                    <Tv className="h-4 w-4" />
+                                    Anime
+                                </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Book className="h-4 w-4" />
-                                Libri
+                            <DropdownMenuItem asChild>
+                                <Link href="/books" className="gap-2">
+                                    <Book className="h-4 w-4" />
+                                    Books
+                                </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Book className="h-4 w-4" />
-                                Manga
+                            <DropdownMenuItem asChild>
+                                <Link href="/manga" className="gap-2">
+                                    <Book className="h-4 w-4" />
+                                    Manga
+                                </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Book className="h-4 w-4" />
-                                Fumetti
+                            <DropdownMenuItem asChild>
+                                <Link href="/comics" className="gap-2">
+                                    <Book className="h-4 w-4" />
+                                    Comics
+                                </Link>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -176,7 +190,7 @@ export default function Navbar({ onSearchResults }: NavbarProps) {
                         type="search" 
                         placeholder="Search..." 
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)} //aggiorna lo stato ogni volta che l'utente scrive
+                        onChange={(e) => onSearchQueryChange(e.target.value)}
                         className="w-full pl-9 bg-secondary/50 border-border/50" 
                     />
                 </div>

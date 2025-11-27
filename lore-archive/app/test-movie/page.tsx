@@ -8,6 +8,7 @@ export default function TestMoviePage() {
   const [movies, setMovies] = useState<any[]>([]);
   const [ratingValues, setRatingValues] = useState<{ [key: number]: string }>({});
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchMovies = async () => {
@@ -81,8 +82,6 @@ export default function TestMoviePage() {
         genres: [],
       };
 
-      console.log("Adding movie with ID:", item.id);
-
       const res = await fetch("/api/movie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,7 +89,6 @@ export default function TestMoviePage() {
       });
 
       const data = await res.json();
-      console.log("API Response:", data);
 
       if (data.alreadyExists) {
         alert("This movie is already in your collection");
@@ -98,7 +96,6 @@ export default function TestMoviePage() {
         const refreshRes = await fetch("/api/movie");
         const refreshData = await refreshRes.json();
         setMovies(refreshData.movies);
-        console.log("Movies after refresh:", refreshData.movies);
       }
     } catch (err) {
       console.error("Error adding movie:", err);
@@ -111,7 +108,11 @@ export default function TestMoviePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar onSearchResults={setSearchResults} />
+      <Navbar 
+        onSearchResults={setSearchResults}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+      />
 
       <main className="container mx-auto px-4 py-8 max-w-7xl">
         {searchResults.length > 0 && (
@@ -137,7 +138,6 @@ export default function TestMoviePage() {
                     <p className="text-sm text-muted-foreground">
                       {item.type.toUpperCase()} — {item.releaseDate}
                     </p>
-                    <p className="text-xs text-muted-foreground">ID: {item.id}</p>
                   </div>
 
                   <button
