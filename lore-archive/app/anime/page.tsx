@@ -156,6 +156,7 @@ export default function AnimePage() {
         onSearchResults={setSearchResults}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
+        category="ANIME"
       />
 
       <main className="container mx-auto px-4 py-8 max-w-7xl">

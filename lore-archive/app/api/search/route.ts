@@ -1,64 +1,119 @@
-export async function GET(request:Request){
-    const {searchParams} = new URL(request.url); //request.url contiene l url chiamato - searchParams è un oggetto tipo Map
-    const query = searchParams.get("query") //query è cio che l utente ha scritto
+import { NextRequest, NextResponse } from "next/server";
 
-    if(!query){
-        return Response.json({results: []}); //no query utente - lista vuota 
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const JIKAN_BASE_URL = "https://api.jikan.moe/v4";
+
+export async function GET(req: NextRequest) {
+    const query = req.nextUrl.searchParams.get("query");
+    const category = req.nextUrl.searchParams.get("category");
+
+    if (!query || query.trim().length === 0) {
+        return NextResponse.json({ results: [] });
     }
 
-    const params = new URLSearchParams({
-        api_key: process.env.TMDB_API_KEY!,
-        query,
-        include_adult: "false", //per evitare robe aliene nella search
-    })
+    try {
+        let results: any[] = [];
 
-    const url = `https://api.themoviedb.org/3/search/multi?${params.toString()}`;
+        if (!category) {
+            const [moviesRes, tvRes, animeRes, mangaRes] = await Promise.all([
+                fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`),
+                fetch(`${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`),
+                fetch(`${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(query)}&limit=10`),
+                fetch(`${JIKAN_BASE_URL}/manga?q=${encodeURIComponent(query)}&limit=10`),
+            ]);
 
-    const [response, animeResponse, mangaResponse] = await Promise.all([
-        fetch(url),
-        fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=8&order_by=score&sort=desc`),
-        fetch(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=8&order_by=score&sort=desc`),
-    ]);
+            const moviesData = await moviesRes.json();
+            const tvData = await tvRes.json();
+            const animeData = await animeRes.json();
+            const mangaData = await mangaRes.json();
 
-    const [data, animeData, mangaData] = await Promise.all([
-        response.json(),
-        animeResponse.ok ? animeResponse.json() : Promise.resolve({ data: [] }),
-        mangaResponse.ok ? mangaResponse.json() : Promise.resolve({ data: [] }),
-    ]);
+            const movies = (moviesData.results || []).map((m: any) => ({
+                id: m.id,
+                title: m.title,
+                poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+                releaseDate: m.release_date,
+                type: "movie",
+                genres: m.genre_ids || [],
+            }));
 
-    console.log(data);
+            const tv = (tvData.results || []).map((t: any) => ({
+                id: t.id,
+                title: t.name,
+                poster: t.poster_path ? `https://image.tmdb.org/t/p/w500${t.poster_path}` : null,
+                releaseDate: t.first_air_date,
+                type: "tv",
+                genres: t.genre_ids || [],
+            }));
 
-    const filtered = data.results.filter((item: any) => //array.filter((item) => condizione) - item è il nome della variabile per ogni elemento dell'array
-        item.media_type === "movie" || item.media_type === "tv");
+            const anime = (animeData.data || []).map((a: any) => ({
+                id: a.mal_id,
+                title: a.title,
+                poster: a.images?.jpg?.image_url || null,
+                releaseDate: a.aired?.from?.substring(0, 10) || null,
+                type: "anime",
+                genres: a.genres?.map((g: any) => g.name) || [],
+            }));
 
-    const cleaned = filtered.map((item: any) => ({ //map prende ogni elemento e lo trasforma
-        id: item.id,
-        title: item.title || item.name,
-        overview: item.overview,
-        poster: item.poster_path //lo convertiamo in url completo
-            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : null,
-        type: item.media_type,
-        releaseDate: item.release_date || item.first_air_date,
-    }))
+            const manga = (mangaData.data || []).map((m: any) => ({
+                id: m.mal_id,
+                title: m.title,
+                poster: m.images?.jpg?.image_url || null,
+                releaseDate: m.published?.from?.substring(0, 10) || null,
+                type: "manga",
+                genres: m.genres?.map((g: any) => g.name) || [],
+            }));
 
-    const animeResults = (animeData?.data ?? []).map((item: any) => ({
-        id: item.mal_id,
-        title: item.title,
-        overview: item.synopsis,
-        poster: item.images?.jpg?.image_url ?? null,
-        type: "anime",
-        releaseDate: item.aired?.from,
-    }))
+            results = [...movies, ...tv, ...anime, ...manga];
+        } else if (category === "MOVIE") {
+            const res = await fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            results = (data.results || []).map((m: any) => ({
+                id: m.id,
+                title: m.title,
+                poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+                releaseDate: m.release_date,
+                type: "movie",
+                genres: m.genre_ids || [],
+            }));
+        } else if (category === "TV_SERIES") {
+            const res = await fetch(`${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            results = (data.results || []).map((t: any) => ({
+                id: t.id,
+                title: t.name,
+                poster: t.poster_path ? `https://image.tmdb.org/t/p/w500${t.poster_path}` : null,
+                releaseDate: t.first_air_date,
+                type: "tv",
+                genres: t.genre_ids || [],
+            }));
+        } else if (category === "ANIME") {
+            const res = await fetch(`${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(query)}&limit=20`);
+            const data = await res.json();
+            results = (data.data || []).map((a: any) => ({
+                id: a.mal_id,
+                title: a.title,
+                poster: a.images?.jpg?.image_url || null,
+                releaseDate: a.aired?.from?.substring(0, 10) || null,
+                type: "anime",
+                genres: a.genres?.map((g: any) => g.name) || [],
+            }));
+        } else if (category === "MANGA") {
+            const res = await fetch(`${JIKAN_BASE_URL}/manga?q=${encodeURIComponent(query)}&limit=20`);
+            const data = await res.json();
+            results = (data.data || []).map((m: any) => ({
+                id: m.mal_id,
+                title: m.title,
+                poster: m.images?.jpg?.image_url || null,
+                releaseDate: m.published?.from?.substring(0, 10) || null,
+                type: "manga",
+                genres: m.genres?.map((g: any) => g.name) || [],
+            }));
+        }
 
-    const mangaResults = (mangaData?.data ?? []).map((item: any) => ({
-        id: item.mal_id,
-        title: item.title,
-        overview: item.synopsis,
-        poster: item.images?.jpg?.image_url ?? null,
-        type: "manga",
-        releaseDate: item.published?.from,
-    }))
-
-    return Response.json({ results: [...cleaned, ...animeResults, ...mangaResults] });
+        return NextResponse.json({ results });
+    } catch (error) {
+        console.error("Search error:", error);
+        return NextResponse.json({ results: [] }, { status: 500 });
+    }
 }

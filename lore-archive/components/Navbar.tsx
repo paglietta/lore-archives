@@ -12,6 +12,7 @@ interface NavbarProps {
     onSearchResults: (results: any[]) => void;
     searchQuery: string;
     onSearchQueryChange: (query: string) => void;
+    category?: "MOVIE" | "TV_SERIES" | "ANIME" | "MANGA" | null;
 }
 
 interface SessionUser {
@@ -20,7 +21,7 @@ interface SessionUser {
     displayName: string;
 }
 
-export default function Navbar({ onSearchResults, searchQuery, onSearchQueryChange }: NavbarProps) {
+export default function Navbar({ onSearchResults, searchQuery, onSearchQueryChange, category }: NavbarProps) {
     const searchCache = useRef<Map<string, any[]>>(new Map())
     const debounceRef = useRef<number | null>(null)
     const abortRef = useRef<AbortController | null>(null)
@@ -55,7 +56,8 @@ export default function Navbar({ onSearchResults, searchQuery, onSearchQueryChan
             abortRef.current = ac
 
             try {
-                const res = await fetch(`/api/search?query=${encodeURIComponent(searchQuery)}`, {
+                const categoryParam = category ? `&category=${category}` : "";
+                const res = await fetch(`/api/search?query=${encodeURIComponent(searchQuery)}${categoryParam}`, {
                     signal: ac.signal
                 })
                 if (!res.ok) throw new Error("search failed")
@@ -79,7 +81,7 @@ export default function Navbar({ onSearchResults, searchQuery, onSearchQueryChan
                 debounceRef.current = null
             }
         }
-    }, [searchQuery, onSearchResults])
+    }, [searchQuery, onSearchResults, category])
 
     useEffect(() => {
         let isActive = true
