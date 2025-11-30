@@ -1,24 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback } from "react";
 import Navbar from "@/components/Navbar";
 import { MediaCard } from "@/components/MediaCard";
 
-type LibraryTarget = {
-  endpoint: string;
-  category: "TV_SERIES" | "MOVIE" | "ANIME" | "MANGA";
-  alreadyExistsMessage: string;
-  onSuccess?: () => Promise<void>;
-  successMessage?: string;
-};
-
-type LibraryKey = "tv" | "movie" | "anime" | "manga";
-
-const isLibraryKey = (value: string): value is LibraryKey =>
-  value === "tv" || value === "movie" || value === "anime" || value === "manga";
-
-export default function TVSeriesPage() {
-  const [tvSeries, setTVSeries] = useState<any[]>([]);
+function TVSeriesPageImpl() {
+  const [tvSeries, setTvSeries] = useState<any[]>([]);
   const [ratingValues, setRatingValues] = useState<{ [key: number]: string }>({});
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,7 +15,7 @@ export default function TVSeriesPage() {
     try {
       const res = await fetch("/api/tv-series");
       const data = await res.json();
-      setTVSeries(data.tvSeries);
+      setTvSeries(data.series || []);
     } catch (err) {
       console.error(err);
     }
@@ -51,7 +39,7 @@ export default function TVSeriesPage() {
       });
       const data = await res.json();
 
-      setTVSeries((prev) =>
+      setTvSeries((prev) =>
         prev.map((s) => (s.id === seriesId ? { ...s, ratings: [data.rating] } : s))
       );
     } catch (err) {
@@ -68,12 +56,25 @@ export default function TVSeriesPage() {
       });
 
       if (res.ok) {
-        setTVSeries((prev) => prev.filter((s) => s.id !== seriesId));
+        setTvSeries((prev) => prev.filter((s) => s.id !== seriesId));
       }
     } catch (err) {
       console.error(err);
     }
   };
+
+  type LibraryTarget = {
+    endpoint: string;
+    category: "MOVIE" | "TV_SERIES" | "ANIME" | "MANGA";
+    alreadyExistsMessage: string;
+    onSuccess?: () => Promise<void>;
+    successMessage?: string;
+  };
+
+  type LibraryKey = "tv" | "movie" | "anime" | "manga";
+
+  const isLibraryKey = (value: string): value is LibraryKey =>
+    value === "tv" || value === "movie" || value === "anime" || value === "manga";
 
   const libraryTargets: Record<LibraryKey, LibraryTarget> = {
     tv: {
@@ -227,7 +228,6 @@ export default function TVSeriesPage() {
               <span>Avg rating: {avgRating}</span>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">Filters</div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -253,3 +253,5 @@ export default function TVSeriesPage() {
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(TVSeriesPageImpl), { ssr: false });

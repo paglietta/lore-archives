@@ -1,19 +1,23 @@
 import {prisma} from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(request: Request){
-    const body = await request.json(); //body inviato
-    const {id, title, poster, releaseDate, category, genres} = body; //estraiamo i campi che servono
+    const user = await requireAuth();
+    const body = await request.json();
+    const {id, title, poster, releaseDate, category, genres} = body;
 
     const existingMovie = await prisma.movie.findUnique({
-        where: { id: id},
+        where: { ownerId_id: { ownerId: user.id, id } },
     });
 
     if (existingMovie){
         return Response.json({ movie: existingMovie, alreadyExists: true });
     }
 
-    const newMovie = await prisma.movie.create({ //crea un nuovo record con i campi che voglio salvare
+    const newMovie = await prisma.movie.create({
         data: {
+            ownerId: user.id,
             id,
             title,
             poster,
@@ -23,10 +27,11 @@ export async function POST(request: Request){
     });
 
     if (genres && genres.length > 0){
-        for (const g of genres){ //ciclo su ogni genere passato dal frontend
+        for (const g of genres){
             await prisma.movieGenre.create({
                 data: {
-                    movieId: newMovie.id, //collega il genere al film appena creato
+                    ownerId: user.id,
+                    movieId: newMovie.id,
                     genre: g,
                 },
             });
@@ -36,17 +41,18 @@ export async function POST(request: Request){
     return Response.json({ok:true, movie: newMovie})
 }
 
-export async function GET(){
+export async function GET() {
+    const user = await requireAuth();
     const movies = await prisma.movie.findMany({
-        where: { category: "MOVIE" },
-        include: { genres: true, ratings: true },
-        orderBy: { createdAt: 'desc' }, //ordina dal più recente al più vecchio
+        where: { ownerId: user.id, category: "MOVIE" },
+        include: { ratings: true, genres: true },
+        orderBy: { createdAt: "desc" },
     });
-
-    return Response.json({ movies })
+    return NextResponse.json({ movies });
 }
 
 export async function DELETE(request: Request){
+    const user = await requireAuth();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -57,19 +63,19 @@ export async function DELETE(request: Request){
     const movieId = parseInt(id);
 
     await prisma.movieGenre.deleteMany({
-        where: { movieId }
+        where: { ownerId: user.id, movieId }
     });
 
     await prisma.rating.deleteMany({
-        where: { movieId }
+        where: { ownerId: user.id, movieId }
     });
 
     await prisma.watchlist.deleteMany({
-        where: { movieId }
+        where: { ownerId: user.id, movieId }
     });
 
     await prisma.movie.delete({
-        where: { id: movieId }
+        where: { ownerId_id: { ownerId: user.id, id: movieId } }
     });
 
     return Response.json({ ok: true });

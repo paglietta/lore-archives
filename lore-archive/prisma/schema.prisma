@@ -8,37 +8,47 @@ datasource db {
 }
 
 model Movie {
-  id          Int      @id
+  ownerId     String
+  id          Int
   title       String
   poster      String?
   releaseDate String?
   category    String
   createdAt   DateTime @default(now())
-  
-  genres      MovieGenre[]
-  ratings     Rating[]
-  watchlist   Watchlist[]
+
+  genres    MovieGenre[]
+  ratings   Rating[]
+  watchlist Watchlist[]
+
+  @@id([ownerId, id])
 }
 
 model MovieGenre {
+  ownerId String
   id      Int    @id @default(autoincrement())
   movieId Int
   genre   String
-  
-  movie   Movie  @relation(fields: [movieId], references: [id])
+
+  movie   Movie  @relation(fields: [ownerId, movieId], references: [ownerId, id], onDelete: Cascade)
 }
 
 model Rating {
-  id      Int   @id @default(autoincrement())
-  movieId Int   @unique
+  id      Int    @id @default(autoincrement())
+  ownerId String
+  movieId Int
   value   Float
-  
-  movie   Movie @relation(fields: [movieId], references: [id])
+
+  movie   Movie @relation(fields: [ownerId, movieId], references: [ownerId, id], onDelete: Cascade)
+
+  @@unique([ownerId, movieId])
 }
 
 model Watchlist {
-  id      Int @id @default(autoincrement())
+  id      Int    @id @default(autoincrement())
+  ownerId String
   movieId Int
-  
-  movie   Movie @relation(fields: [movieId], references: [id])
+
+  movie   Movie @relation(fields: [ownerId, movieId], references: [ownerId, id], onDelete: Cascade)
+
+  @@unique([ownerId, movieId])
 }

@@ -1,10 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback } from "react";
 import Navbar from "@/components/Navbar";
 import { MediaCard } from "@/components/MediaCard";
 
-export default function TestMoviePage() {
+function TestMoviePageImpl() {
   const [movies, setMovies] = useState<any[]>([]);
   const [ratingValues, setRatingValues] = useState<{ [key: number]: string }>({});
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -252,3 +253,5 @@ export default function TestMoviePage() {
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(TestMoviePageImpl), { ssr: false });

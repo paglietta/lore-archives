@@ -1,25 +1,33 @@
-import {prisma} from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 
-export async function POST(request: Request){
+export async function POST(request: Request) {
+    const user = await requireAuth();
     const body = await request.json();
-    const { movieId, value} = body;
+    const movieId = Number(body.movieId);
+    const value = Number(body.value);
 
-    const existingRating = await prisma.rating.findUnique({
-        where: {movieId: movieId},
-    });
-
-    let rating;
-
-    if (existingRating){
-        rating = await prisma.rating.update({
-            where: {movieId: movieId},
-            data: {value},
-        });
-    }else{
-        rating = await prisma.rating.create({
-            data:{movieId, value},
-        });
+    if (!movieId || Number.isNaN(value)) {
+        return NextResponse.json({ error: "movieId and value are required" }, { status: 400 });
     }
 
-    return Response.json({ rating });
+    const existingRating = await prisma.rating.findUnique({
+        where: { ownerId_movieId: { ownerId: user.id, movieId } },
+    });
+
+    const rating = existingRating
+        ? await prisma.rating.update({
+              where: { ownerId_movieId: { ownerId: user.id, movieId } },
+              data: { value },
+          })
+        : await prisma.rating.create({
+              data: {
+                  ownerId: user.id,
+                  movieId,
+                  value,
+              },
+          });
+
+    return NextResponse.json({ rating });
 }

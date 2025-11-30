@@ -1,19 +1,23 @@
-import {prisma} from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 
-export async function POST(request: Request){
+export async function POST(request: Request) {
+    const user = await requireAuth();
     const body = await request.json();
-    const {id, title, poster, releaseDate, category, genres} = body;
+    const { id, title, poster, releaseDate, category, genres } = body;
 
     const existingSeries = await prisma.movie.findUnique({
-        where: { id: id},
+        where: { ownerId_id: { ownerId: user.id, id } },
     });
 
-    if (existingSeries){
-        return Response.json({ tvSeries: existingSeries, alreadyExists: true });
+    if (existingSeries) {
+        return NextResponse.json({ series: existingSeries, alreadyExists: true });
     }
 
-    const newSeries = await prisma.movie.create({
+    const series = await prisma.movie.create({
         data: {
+            ownerId: user.id,
             id,
             title,
             poster,
@@ -22,55 +26,38 @@ export async function POST(request: Request){
         },
     });
 
-    if (genres && genres.length > 0){
-        for (const g of genres){
-            await prisma.movieGenre.create({
-                data: {
-                    movieId: newSeries.id,
-                    genre: g,
-                },
-            });
-        }
+    if (Array.isArray(genres)) {
+        await prisma.movieGenre.createMany({
+            data: genres.map((genre: string) => ({
+                ownerId: user.id,
+                movieId: series.id,
+                genre,
+            })),
+        });
     }
 
-    return Response.json({ok:true, tvSeries: newSeries})
+    return NextResponse.json({ series });
 }
 
-export async function GET(){
-    const tvSeries = await prisma.movie.findMany({
-        where: { category: "TV_SERIES" },
+export async function GET() {
+    const user = await requireAuth();
+    const series = await prisma.movie.findMany({
+        where: { ownerId: user.id, category: "TV_SERIES" },
         include: { genres: true, ratings: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
     });
-
-    return Response.json({ tvSeries })
+    return NextResponse.json({ series });
 }
 
-export async function DELETE(request: Request){
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+export async function DELETE(request: Request) {
+    const user = await requireAuth();
+    const id = Number(new URL(request.url).searchParams.get("id"));
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    if (!id) {
-        return Response.json({ error: "ID missing" }, { status: 400 });
-    }
+    await prisma.movieGenre.deleteMany({ where: { ownerId: user.id, movieId: id } });
+    await prisma.rating.deleteMany({ where: { ownerId: user.id, movieId: id } });
+    await prisma.watchlist.deleteMany({ where: { ownerId: user.id, movieId: id } });
+    await prisma.movie.delete({ where: { ownerId_id: { ownerId: user.id, id } } });
 
-    const seriesId = parseInt(id);
-
-    await prisma.movieGenre.deleteMany({
-        where: { movieId: seriesId }
-    });
-
-    await prisma.rating.deleteMany({
-        where: { movieId: seriesId }
-    });
-
-    await prisma.watchlist.deleteMany({
-        where: { movieId: seriesId }
-    });
-
-    await prisma.movie.delete({
-        where: { id: seriesId }
-    });
-
-    return Response.json({ ok: true });
+    return NextResponse.json({ ok: true });
 }
