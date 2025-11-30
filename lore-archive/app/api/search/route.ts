@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
                 releaseDate: m.release_date,
                 type: "movie",
                 genres: m.genre_ids || [],
+                rating: m.vote_average || 0,
             }));
 
             const tv = (tvData.results || []).map((t: any) => ({
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
                 releaseDate: t.first_air_date,
                 type: "tv",
                 genres: t.genre_ids || [],
+                rating: t.vote_average || 0,
             }));
 
             const anime = (animeData.data || []).map((a: any) => ({
@@ -53,6 +55,7 @@ export async function GET(req: NextRequest) {
                 releaseDate: a.aired?.from?.substring(0, 10) || null,
                 type: "anime",
                 genres: a.genres?.map((g: any) => g.name) || [],
+                rating: a.score || 0,
             }));
 
             const manga = (mangaData.data || []).map((m: any) => ({
@@ -62,53 +65,62 @@ export async function GET(req: NextRequest) {
                 releaseDate: m.published?.from?.substring(0, 10) || null,
                 type: "manga",
                 genres: m.genres?.map((g: any) => g.name) || [],
+                rating: m.score || 0,
             }));
 
-            results = [...movies, ...tv, ...anime, ...manga];
+            results = [...movies, ...tv, ...anime, ...manga].sort((a, b) => b.rating - a.rating);
         } else if (category === "MOVIE") {
             const res = await fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
             const data = await res.json();
-            results = (data.results || []).map((m: any) => ({
-                id: m.id,
-                title: m.title,
-                poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
-                releaseDate: m.release_date,
-                type: "movie",
-                genres: m.genre_ids || [],
-            }));
+            results = (data.results || [])
+                .sort((a: any, b: any) => (b.vote_average || 0) - (a.vote_average || 0))
+                .map((m: any) => ({
+                    id: m.id,
+                    title: m.title,
+                    poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+                    releaseDate: m.release_date,
+                    type: "movie",
+                    genres: m.genre_ids || [],
+                }));
         } else if (category === "TV_SERIES") {
             const res = await fetch(`${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
             const data = await res.json();
-            results = (data.results || []).map((t: any) => ({
-                id: t.id,
-                title: t.name,
-                poster: t.poster_path ? `https://image.tmdb.org/t/p/w500${t.poster_path}` : null,
-                releaseDate: t.first_air_date,
-                type: "tv",
-                genres: t.genre_ids || [],
-            }));
+            results = (data.results || [])
+                .sort((a: any, b: any) => (b.vote_average || 0) - (a.vote_average || 0))
+                .map((t: any) => ({
+                    id: t.id,
+                    title: t.name,
+                    poster: t.poster_path ? `https://image.tmdb.org/t/p/w500${t.poster_path}` : null,
+                    releaseDate: t.first_air_date,
+                    type: "tv",
+                    genres: t.genre_ids || [],
+                }));
         } else if (category === "ANIME") {
             const res = await fetch(`${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(query)}&limit=20`);
             const data = await res.json();
-            results = (data.data || []).map((a: any) => ({
-                id: a.mal_id,
-                title: a.title,
-                poster: a.images?.jpg?.image_url || null,
-                releaseDate: a.aired?.from?.substring(0, 10) || null,
-                type: "anime",
-                genres: a.genres?.map((g: any) => g.name) || [],
-            }));
+            results = (data.data || [])
+                .sort((a: any, b: any) => (b.score || 0) - (a.score || 0))
+                .map((a: any) => ({
+                    id: a.mal_id,
+                    title: a.title,
+                    poster: a.images?.jpg?.image_url || null,
+                    releaseDate: a.aired?.from?.substring(0, 10) || null,
+                    type: "anime",
+                    genres: a.genres?.map((g: any) => g.name) || [],
+                }));
         } else if (category === "MANGA") {
             const res = await fetch(`${JIKAN_BASE_URL}/manga?q=${encodeURIComponent(query)}&limit=20`);
             const data = await res.json();
-            results = (data.data || []).map((m: any) => ({
-                id: m.mal_id,
-                title: m.title,
-                poster: m.images?.jpg?.image_url || null,
-                releaseDate: m.published?.from?.substring(0, 10) || null,
-                type: "manga",
-                genres: m.genres?.map((g: any) => g.name) || [],
-            }));
+            results = (data.data || [])
+                .sort((a: any, b: any) => (b.score || 0) - (a.score || 0))
+                .map((m: any) => ({
+                    id: m.mal_id,
+                    title: m.title,
+                    poster: m.images?.jpg?.image_url || null,
+                    releaseDate: m.published?.from?.substring(0, 10) || null,
+                    type: "manga",
+                    genres: m.genres?.map((g: any) => g.name) || [],
+                }));
         }
 
         return NextResponse.json({ results });
