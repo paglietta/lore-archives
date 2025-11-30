@@ -12,7 +12,7 @@ interface NavbarProps {
     onSearchResults: (results: any[]) => void;
     searchQuery: string;
     onSearchQueryChange: (query: string) => void;
-    category?: "MOVIE" | "TV_SERIES" | "ANIME" | "MANGA" | null;
+    category?: "MOVIE" | "TV_SERIES" | "ANIME" | "MANGA" | "BOOK" | "COMIC" | null;
 }
 
 interface SessionUser {

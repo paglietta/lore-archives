@@ -163,6 +163,7 @@ export default function ComicsPage() {
         onSearchResults={setSearchResults}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
+        category="COMIC"
       />
 
       <main className="container mx-auto px-4 py-8 max-w-7xl">

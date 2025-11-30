@@ -2,10 +2,22 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 
+function hashStringToInt(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash);
+}
+
 export async function POST(request: Request) {
     const user = await requireAuth();
     const body = await request.json();
-    const { id, title, poster, releaseDate, category, genres } = body;
+    const { id: originalId, title, poster, releaseDate, category, genres } = body;
+    
+    const id = typeof originalId === 'string' ? hashStringToInt(originalId) : Number(originalId);
 
     const existingComic = await prisma.movie.findUnique({
         where: { ownerId_id: { ownerId: user.id, id } },

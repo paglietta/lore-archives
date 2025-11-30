@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const JIKAN_BASE_URL = "https://api.jikan.moe/v4";
+const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1";
 
 export async function GET(req: NextRequest) {
     const query = req.nextUrl.searchParams.get("query");
@@ -16,17 +17,19 @@ export async function GET(req: NextRequest) {
         let results: any[] = [];
 
         if (!category) {
-            const [moviesRes, tvRes, animeRes, mangaRes] = await Promise.all([
+            const [moviesRes, tvRes, animeRes, mangaRes, booksRes] = await Promise.all([
                 fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`),
                 fetch(`${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`),
                 fetch(`${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(query)}&limit=10`),
                 fetch(`${JIKAN_BASE_URL}/manga?q=${encodeURIComponent(query)}&limit=10`),
+                fetch(`${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&maxResults=10`),
             ]);
 
             const moviesData = await moviesRes.json();
             const tvData = await tvRes.json();
             const animeData = await animeRes.json();
             const mangaData = await mangaRes.json();
+            const booksData = await booksRes.json();
 
             const movies = (moviesData.results || []).map((m: any) => ({
                 id: m.id,
@@ -68,7 +71,18 @@ export async function GET(req: NextRequest) {
                 rating: m.score || 0,
             }));
 
-            results = [...movies, ...tv, ...anime, ...manga].sort((a, b) => b.rating - a.rating);
+            const books = (booksData.items || []).map((item: any) => ({
+                id: item.id,
+                title: item.volumeInfo?.title || "Unknown",
+                poster: item.volumeInfo?.imageLinks?.thumbnail || null,
+                releaseDate: item.volumeInfo?.publishedDate || null,
+                type: "book",
+                genres: item.volumeInfo?.categories || [],
+                rating: item.volumeInfo?.averageRating || 0,
+                authors: item.volumeInfo?.authors || [],
+            }));
+
+            results = [...movies, ...tv, ...anime, ...manga, ...books].sort((a, b) => b.rating - a.rating);
         } else if (category === "MOVIE") {
             const res = await fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
             const data = await res.json();
@@ -121,6 +135,36 @@ export async function GET(req: NextRequest) {
                     type: "manga",
                     genres: m.genres?.map((g: any) => g.name) || [],
                 }));
+        } else if (category === "BOOK") {
+            const res = await fetch(`${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&maxResults=20`);
+            const data = await res.json();
+            results = (data.items || [])
+                .map((item: any) => ({
+                    id: item.id,
+                    title: item.volumeInfo?.title || "Unknown",
+                    poster: item.volumeInfo?.imageLinks?.thumbnail || null,
+                    releaseDate: item.volumeInfo?.publishedDate || null,
+                    type: "book",
+                    genres: item.volumeInfo?.categories || [],
+                    rating: item.volumeInfo?.averageRating || 0,
+                    authors: item.volumeInfo?.authors || [],
+                }))
+                .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0));
+        } else if (category === "COMIC") {
+            const res = await fetch(`${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}+subject:comics&maxResults=20`);
+            const data = await res.json();
+            results = (data.items || [])
+                .map((item: any) => ({
+                    id: item.id,
+                    title: item.volumeInfo?.title || "Unknown",
+                    poster: item.volumeInfo?.imageLinks?.thumbnail || null,
+                    releaseDate: item.volumeInfo?.publishedDate || null,
+                    type: "comic",
+                    genres: item.volumeInfo?.categories || [],
+                    rating: item.volumeInfo?.averageRating || 0,
+                    authors: item.volumeInfo?.authors || [],
+                }))
+                .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0));
         }
 
         return NextResponse.json({ results });
